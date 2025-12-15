@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
+import { Slider } from '@/components/ui/slider';
+import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
 interface Goal {
@@ -57,6 +59,7 @@ const spheres = [
 ];
 
 const Index = () => {
+  const { toast } = useToast();
   const [goals, setGoals] = useState<Goal[]>([
     {
       id: '1',
@@ -97,12 +100,151 @@ const Index = () => {
   const [newEventOpen, setNewEventOpen] = useState(false);
   const [newHabitOpen, setNewHabitOpen] = useState(false);
 
+  const [newGoal, setNewGoal] = useState({
+    sphere: '',
+    title: '',
+    description: '',
+    specific: '',
+    measurable: '',
+    achievable: '',
+    relevant: '',
+    deadline: '',
+  });
+
+  const [newEvent, setNewEvent] = useState({
+    title: '',
+    sphere: '',
+    date: '',
+    time: '',
+  });
+
+  const [newHabit, setNewHabit] = useState({
+    sphere: '',
+    title: '',
+  });
+
   const getSphereProgress = (sphereName: string) => {
     const sphereGoals = goals.filter(g => g.sphere === sphereName);
     if (sphereGoals.length === 0) return 0;
     return Math.round(
       sphereGoals.reduce((sum, g) => sum + g.progress, 0) / sphereGoals.length
     );
+  };
+
+  const updateGoalProgress = (goalId: string, newProgress: number) => {
+    setGoals(goals.map(goal => 
+      goal.id === goalId ? { ...goal, progress: newProgress } : goal
+    ));
+    toast({
+      title: "Прогресс обновлен",
+      description: `Прогресс цели установлен на ${newProgress}%`,
+    });
+  };
+
+  const addGoal = () => {
+    if (!newGoal.sphere || !newGoal.title || !newGoal.deadline) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните обязательные поля: сфера, название и срок",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const goal: Goal = {
+      id: Date.now().toString(),
+      sphere: newGoal.sphere,
+      title: newGoal.title,
+      description: newGoal.description,
+      deadline: new Date(newGoal.deadline),
+      progress: 0,
+      specific: newGoal.specific,
+      measurable: newGoal.measurable,
+      achievable: newGoal.achievable,
+      relevant: newGoal.relevant,
+      timeBound: `До ${new Date(newGoal.deadline).toLocaleDateString('ru-RU')}`,
+    };
+
+    setGoals([...goals, goal]);
+    setNewGoalOpen(false);
+    setNewGoal({
+      sphere: '',
+      title: '',
+      description: '',
+      specific: '',
+      measurable: '',
+      achievable: '',
+      relevant: '',
+      deadline: '',
+    });
+    
+    toast({
+      title: "Цель добавлена!",
+      description: `Цель "${newGoal.title}" успешно создана`,
+    });
+  };
+
+  const addEvent = () => {
+    if (!newEvent.title || !newEvent.sphere || !newEvent.date || !newEvent.time) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните все поля",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const event: Event = {
+      id: Date.now().toString(),
+      title: newEvent.title,
+      sphere: newEvent.sphere,
+      date: new Date(newEvent.date),
+      time: newEvent.time,
+    };
+
+    setEvents([...events, event]);
+    setNewEventOpen(false);
+    setNewEvent({
+      title: '',
+      sphere: '',
+      date: '',
+      time: '',
+    });
+    
+    toast({
+      title: "Событие добавлено!",
+      description: `"${newEvent.title}" на ${new Date(newEvent.date).toLocaleDateString('ru-RU')}`,
+    });
+  };
+
+  const addHabit = () => {
+    if (!newHabit.sphere || !newHabit.title) {
+      toast({
+        title: "Ошибка",
+        description: "Заполните все поля",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const habit: Habit = {
+      id: Date.now().toString(),
+      sphere: newHabit.sphere,
+      title: newHabit.title,
+      completedDates: [],
+    };
+
+    setHabits([...habits, habit]);
+    setNewHabitOpen(false);
+    setNewHabit({
+      sphere: '',
+      title: '',
+    });
+    
+    toast({
+      title: "Привычка добавлена!",
+      description: `Привычка "${newHabit.title}" создана`,
+    });
   };
 
   const toggleHabitCompletion = (habitId: string, date: Date) => {
@@ -197,8 +339,8 @@ const Index = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Сфера</Label>
-                      <Select>
+                      <Label>Сфера *</Label>
+                      <Select value={newGoal.sphere} onValueChange={(value) => setNewGoal({...newGoal, sphere: value})}>
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите сферу" />
                         </SelectTrigger>
@@ -210,36 +352,64 @@ const Index = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Название цели</Label>
-                      <Input placeholder="Например: Лечение зубов" />
+                      <Label>Название цели *</Label>
+                      <Input 
+                        placeholder="Например: Лечение зубов" 
+                        value={newGoal.title}
+                        onChange={(e) => setNewGoal({...newGoal, title: e.target.value})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Описание</Label>
-                      <Textarea placeholder="Подробное описание цели" />
+                      <Textarea 
+                        placeholder="Подробное описание цели" 
+                        value={newGoal.description}
+                        onChange={(e) => setNewGoal({...newGoal, description: e.target.value})}
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Specific (Конкретность)</Label>
-                        <Input placeholder="Что именно нужно сделать?" />
+                        <Input 
+                          placeholder="Что именно нужно сделать?" 
+                          value={newGoal.specific}
+                          onChange={(e) => setNewGoal({...newGoal, specific: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Measurable (Измеримость)</Label>
-                        <Input placeholder="Как измерить результат?" />
+                        <Input 
+                          placeholder="Как измерить результат?" 
+                          value={newGoal.measurable}
+                          onChange={(e) => setNewGoal({...newGoal, measurable: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Achievable (Достижимость)</Label>
-                        <Input placeholder="Почему это достижимо?" />
+                        <Input 
+                          placeholder="Почему это достижимо?" 
+                          value={newGoal.achievable}
+                          onChange={(e) => setNewGoal({...newGoal, achievable: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Relevant (Актуальность)</Label>
-                        <Input placeholder="Зачем это нужно?" />
+                        <Input 
+                          placeholder="Зачем это нужно?" 
+                          value={newGoal.relevant}
+                          onChange={(e) => setNewGoal({...newGoal, relevant: e.target.value})}
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Time-bound (Срок)</Label>
-                      <Input type="date" />
+                      <Label>Time-bound (Срок) *</Label>
+                      <Input 
+                        type="date" 
+                        value={newGoal.deadline}
+                        onChange={(e) => setNewGoal({...newGoal, deadline: e.target.value})}
+                      />
                     </div>
-                    <Button className="w-full">Создать цель</Button>
+                    <Button className="w-full" onClick={addGoal}>Создать цель</Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -272,7 +442,19 @@ const Index = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <Progress value={goal.progress} className="mb-4" />
+                      <div className="mb-4 space-y-2">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>Прогресс выполнения</span>
+                          <span className="font-semibold">{goal.progress}%</span>
+                        </div>
+                        <Slider
+                          value={[goal.progress]}
+                          onValueChange={(value) => updateGoalProgress(goal.id, value[0])}
+                          max={100}
+                          step={5}
+                          className="cursor-pointer"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <span className="font-semibold">S:</span> {goal.specific}
@@ -313,8 +495,8 @@ const Index = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Сфера</Label>
-                      <Select>
+                      <Label>Сфера *</Label>
+                      <Select value={newHabit.sphere} onValueChange={(value) => setNewHabit({...newHabit, sphere: value})}>
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите сферу" />
                         </SelectTrigger>
@@ -326,10 +508,14 @@ const Index = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Название привычки</Label>
-                      <Input placeholder="Например: Утренняя зарядка" />
+                      <Label>Название привычки *</Label>
+                      <Input 
+                        placeholder="Например: Утренняя зарядка" 
+                        value={newHabit.title}
+                        onChange={(e) => setNewHabit({...newHabit, title: e.target.value})}
+                      />
                     </div>
-                    <Button className="w-full">Создать привычку</Button>
+                    <Button className="w-full" onClick={addHabit}>Создать привычку</Button>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -408,12 +594,16 @@ const Index = () => {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label>Название</Label>
-                      <Input placeholder="Например: Приём у терапевта" />
+                      <Label>Название *</Label>
+                      <Input 
+                        placeholder="Например: Приём у терапевта" 
+                        value={newEvent.title}
+                        onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label>Сфера</Label>
-                      <Select>
+                      <Label>Сфера *</Label>
+                      <Select value={newEvent.sphere} onValueChange={(value) => setNewEvent({...newEvent, sphere: value})}>
                         <SelectTrigger>
                           <SelectValue placeholder="Выберите сферу" />
                         </SelectTrigger>
@@ -426,15 +616,23 @@ const Index = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Дата</Label>
-                        <Input type="date" />
+                        <Label>Дата *</Label>
+                        <Input 
+                          type="date" 
+                          value={newEvent.date}
+                          onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label>Время</Label>
-                        <Input type="time" />
+                        <Label>Время *</Label>
+                        <Input 
+                          type="time" 
+                          value={newEvent.time}
+                          onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                        />
                       </div>
                     </div>
-                    <Button className="w-full">Создать событие</Button>
+                    <Button className="w-full" onClick={addEvent}>Создать событие</Button>
                   </div>
                 </DialogContent>
               </Dialog>
