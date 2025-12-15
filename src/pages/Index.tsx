@@ -34,6 +34,9 @@ interface Event {
   sphere: string;
   date: Date;
   time: string;
+  location?: string;
+  cost?: number;
+  linkedGoalId?: string;
 }
 
 interface Habit {
@@ -64,7 +67,7 @@ const Index = () => {
     {
       id: '1',
       sphere: 'Здоровье',
-      title: 'Лечение зубов',
+      title: 'Вылечить зубы к НГ',
       description: 'Записаться к стоматологу и пройти курс лечения',
       deadline: new Date('2024-12-31'),
       progress: 30,
@@ -79,10 +82,21 @@ const Index = () => {
   const [events, setEvents] = useState<Event[]>([
     {
       id: '1',
-      title: 'Приём у терапевта',
+      title: 'Приём у стоматолога',
       sphere: 'Здоровье',
       date: new Date('2024-12-20'),
       time: '18:00',
+      location: 'Клиника "Дентал", каб. 305',
+      cost: 5000,
+      linkedGoalId: '1',
+    },
+    {
+      id: '2',
+      title: 'Перевести на ипотеку',
+      sphere: 'Финансы',
+      date: new Date('2024-12-20'),
+      time: '12:00',
+      cost: 20000,
     },
   ]);
 
@@ -90,8 +104,8 @@ const Index = () => {
     {
       id: '1',
       sphere: 'Спорт',
-      title: 'Утренняя зарядка',
-      completedDates: [new Date('2024-12-14'), new Date('2024-12-13')],
+      title: 'Утренняя пробежка',
+      completedDates: [new Date('2024-12-15'), new Date('2024-12-14'), new Date('2024-12-13')],
     },
   ]);
 
@@ -276,13 +290,272 @@ const Index = () => {
           <p className="text-muted-foreground">Управляй своей жизнью осознанно</p>
         </header>
 
-        <Tabs defaultValue="wheel" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+        <Tabs defaultValue="roadmap" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+            <TabsTrigger value="roadmap">Роадмэп</TabsTrigger>
             <TabsTrigger value="wheel">Колесо</TabsTrigger>
             <TabsTrigger value="goals">Цели</TabsTrigger>
             <TabsTrigger value="habits">Привычки</TabsTrigger>
             <TabsTrigger value="calendar">Календарь</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="roadmap" className="space-y-6">
+            <div className="grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Баланс Сфер</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center">
+                    <div className="relative w-48 h-48 mb-6">
+                      <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                        {spheres.slice(0, 4).map((sphere, i) => {
+                          const progress = getSphereProgress(sphere.name);
+                          const startAngle = (i * 90);
+                          const endAngle = startAngle + 90;
+                          const radius = 40;
+                          const cx = 50;
+                          const cy = 50;
+                          
+                          const x1 = cx + radius * Math.cos((startAngle * Math.PI) / 180);
+                          const y1 = cy + radius * Math.sin((startAngle * Math.PI) / 180);
+                          const x2 = cx + radius * Math.cos((endAngle * Math.PI) / 180);
+                          const y2 = cy + radius * Math.sin((endAngle * Math.PI) / 180);
+                          
+                          return (
+                            <path
+                              key={sphere.name}
+                              d={`M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2} Z`}
+                              fill={sphere.color}
+                              opacity={0.7 + (progress / 200)}
+                            />
+                          );
+                        })}
+                        <circle cx="50" cy="50" r="20" fill="white" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-primary">
+                            {Math.round(spheres.slice(0, 4).reduce((sum, s) => sum + getSphereProgress(s.name), 0) / 4) / 10}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Средний</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 w-full text-xs">
+                      {spheres.slice(0, 4).map((sphere) => (
+                        <div key={sphere.name} className="flex items-center gap-2">
+                          <span 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: sphere.color }}
+                          />
+                          <span>{sphere.name} ({getSphereProgress(sphere.name) / 10})</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button variant="outline" className="w-full mt-4">
+                      Обновить оценки
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-2 space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Роадмэп событий</h2>
+                  <Dialog open={newEventOpen} onOpenChange={setNewEventOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="shadow-lg">
+                        <Icon name="Plus" size={16} className="mr-2" />
+                        Новая задача
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Новое событие</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Название *</Label>
+                          <Input 
+                            placeholder="Например: Приём у врача" 
+                            value={newEvent.title}
+                            onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Сфера *</Label>
+                          <Select value={newEvent.sphere} onValueChange={(value) => setNewEvent({...newEvent, sphere: value})}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите сферу" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {spheres.map(s => (
+                                <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Дата *</Label>
+                            <Input 
+                              type="date" 
+                              value={newEvent.date}
+                              onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Время *</Label>
+                            <Input 
+                              type="time" 
+                              value={newEvent.time}
+                              onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                        <Button className="w-full" onClick={addEvent}>Создать событие</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="relative border-l-2 border-border ml-4 space-y-8">
+                  <div className="relative pl-8">
+                    <span className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary border-4 border-background"></span>
+                    <div className="mb-3 font-bold text-muted-foreground uppercase text-xs tracking-wider">
+                      Сегодня, {new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                    </div>
+                    
+                    {habits.map((habit) => {
+                      const sphere = spheres.find(s => s.name === habit.sphere);
+                      const today = new Date();
+                      const isCompletedToday = habit.completedDates.some(
+                        d => d.toDateString() === today.toDateString()
+                      );
+                      
+                      return (
+                        <div 
+                          key={habit.id}
+                          className="bg-card p-4 rounded-xl shadow-sm border mb-3 flex items-center gap-4 hover:shadow-md transition-shadow"
+                        >
+                          <div 
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                            style={{ backgroundColor: `${sphere?.color}20` }}
+                          >
+                            🏃
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start mb-1">
+                              <h3 className="font-bold">{habit.title}</h3>
+                              <Badge 
+                                className="text-xs"
+                                style={{ backgroundColor: sphere?.color }}
+                              >
+                                {habit.sphere}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Привычка • Ежедневно</p>
+                          </div>
+                          <input 
+                            type="checkbox" 
+                            checked={isCompletedToday}
+                            onChange={() => toggleHabitCompletion(habit.id, today)}
+                            className="w-6 h-6 text-primary rounded focus:ring-primary cursor-pointer" 
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {Array.from(new Set(events.map(e => e.date.toDateString())))
+                    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                    .map((dateStr) => {
+                      const date = new Date(dateStr);
+                      const dateEvents = events.filter(e => e.date.toDateString() === dateStr);
+                      const isToday = date.toDateString() === new Date().toDateString();
+                      
+                      return (
+                        <div key={dateStr} className="relative pl-8">
+                          <span 
+                            className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-background ${
+                              isToday ? 'bg-primary' : 'bg-muted-foreground'
+                            }`}
+                          ></span>
+                          <div className="mb-3 font-bold text-muted-foreground uppercase text-xs tracking-wider">
+                            {date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                          </div>
+                          
+                          {dateEvents.map((event) => {
+                            const sphere = spheres.find(s => s.name === event.sphere);
+                            const linkedGoal = event.linkedGoalId 
+                              ? goals.find(g => g.id === event.linkedGoalId) 
+                              : null;
+                            
+                            return (
+                              <div 
+                                key={event.id}
+                                className="bg-card p-5 rounded-xl shadow-sm border mb-3 hover:shadow-md transition-shadow group cursor-pointer relative overflow-hidden"
+                              >
+                                <div 
+                                  className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl"
+                                  style={{ backgroundColor: sphere?.color }}
+                                />
+                                
+                                <div className="pl-3">
+                                  {linkedGoal && (
+                                    <div className="text-xs font-bold mb-1 flex items-center gap-2"
+                                      style={{ color: sphere?.color }}
+                                    >
+                                      <Icon name="Target" size={12} />
+                                      Цель: {linkedGoal.title}
+                                      <div className="w-16 h-1.5 bg-muted rounded-full ml-1">
+                                        <div 
+                                          className="h-1.5 rounded-full"
+                                          style={{ 
+                                            width: `${linkedGoal.progress}%`,
+                                            backgroundColor: sphere?.color 
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h3 className="text-lg font-bold">{event.title}</h3>
+                                    <div className="text-right ml-4">
+                                      <div className="text-lg font-bold">{event.time}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {date.toLocaleDateString('ru-RU', { weekday: 'short' })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                                    {event.location && (
+                                      <div className="flex items-center gap-1">
+                                        <Icon name="MapPin" size={14} />
+                                        {event.location}
+                                      </div>
+                                    )}
+                                    {event.cost && (
+                                      <div className="flex items-center gap-1">
+                                        <Icon name="Wallet" size={14} />
+                                        {event.cost.toLocaleString('ru-RU')} ₽
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="wheel" className="space-y-6">
             <Card>
